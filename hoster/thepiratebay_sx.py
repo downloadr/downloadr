@@ -8,7 +8,7 @@ from ... import hoster
 class this:
     model = hoster.HttpHoster
     name = "thepiratebay.sx"
-    search = dict(display="list", tags="audio, video, software, porn, other")
+    search = dict(display="list", tags="audio, video, software, adult, other")
     patterns = [
         hoster.Matcher('https?', '*.thepiratebay.sx', "!/torrent/<id>/<name>"),
     ]
