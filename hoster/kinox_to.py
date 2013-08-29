@@ -12,7 +12,7 @@ from bs4 import BeautifulSoup
 class this:
     model = hoster.HttpHoster
     name = "kinox.to"
-    search = dict(display="thumbs", tags="video")
+    search = dict(display="thumbs", tags="video", empty=True)
     patterns = [
                 hoster.Matcher('http?', '*.kinox.to', "!/Stream/<name>.html")
                 ]
@@ -35,7 +35,6 @@ def get_link(file, rel):
     ret = data.json()
     soup = BeautifulSoup(ret["Stream"])
     link = soup.find("a")["href"]
-    print "got link lol", link
     if link.startswith("/Out/?s="):
         link = link[8:]
     return link
@@ -134,8 +133,9 @@ def _load(ctx, row):
         thumb = image["src"]
     )
 
-def on_search(ctx, query):
-    resp = ctx.account.get('http://kinox.to/Search.html', params=dict(q=query))
+def on_search(ctx, query, resp=None):
+    if resp is None:
+        resp = ctx.account.get('http://kinox.to/Search.html', params=dict(q=query))
     table = resp.soup.find("table")
     if not table:
         print resp.content
@@ -152,3 +152,7 @@ def on_search(ctx, query):
     for row in rows:
         p.spawn(_load, ctx, row)
     p.join()
+
+def on_search_empty(ctx):
+    resp = ctx.account.get("http://kinox.to/Popular-Movies.html")
+    on_search(ctx, None, resp)

@@ -8,7 +8,7 @@ from ... import hoster, javascript
 class this:
     model = hoster.HttpHoster
     name = 'myvideo.de'
-    search = dict(display='thumbs', tags='video')
+    search = dict(display='thumbs', tags='video', default_phrase="")
     patterns = [
         hoster.Matcher("https?", "*.myvideo.de", "!/watch/<id>/<name>").set_tag("de"),
         hoster.Matcher("https?", "*.myvideo.de", "!/watch/<id>").set_tag("de"),

@@ -4,7 +4,7 @@ serienjunkies_org.py
 """
 from functools import partial
 from collections import defaultdict
-import bs4
+import bs4, re
 import gevent
 from gevent import pool
 from ... import hoster, container
@@ -14,10 +14,10 @@ class this:
     model = hoster.HttpHoster
     name = 'serienjunkies.org'
     patterns = [
-        hoster.Matcher('https?', "serienjunkies.org", "!/<descriptor>/<name>/").set_tag("page"),
+        hoster.Matcher('https?', name, "!/<descriptor>/<name>/").set_tag("page"),
         hoster.Matcher('https?', 'download.serienjunkies.org', '!/<id>/<name>.html').set_tag("download"),
     ]
-    search = dict(display='thumbs', tags="video, other")
+    search = dict(display='thumbs', tags="video, other", empty=True)
     favicon_url = "http://serienjunkies.org/media/img/favicon.ico"
     set_user_agent = True
     use_cache = False
@@ -46,7 +46,7 @@ def download_link(file, retries=5):
             return download_link(file, retries-1)
         cnl = {x["name"]: x["value"] for x in form("input")}
         links = container.decrypt_clickandload(cnl)
-        return links, None, ["serienjunkies.org", "dokujunkies.org"]
+        return links, None, [this.name]
 
     file.set_infos(name=file.pmatch.name)
     file.input_aborted()
@@ -144,10 +144,16 @@ def on_check(file):
             file.file_offline()
         file.delete_after_greenlet()
 
-def _load(ctx, (cat, name), retry=7):
+def _load(ctx, (cat, name), retry=3):
     if not retry:
         return
-    resp = ctx.account.get("http://serienjunkies.org/", params=dict(cat=cat))
+    if cat.startswith("http"):
+        url = cat
+        params = None
+    else:
+        url = "http://{}/".format(this.name)
+        params = dict(cat=cat)
+    resp = ctx.account.get(url, params=params, use_cache=True)
     if resp.status_code == 503:
         gevent.sleep(0.1)
         return _load(ctx, (cat, name), retry-1)
@@ -163,7 +169,24 @@ def _load(ctx, (cat, name), retry=7):
         return d
 
 def on_search(ctx, query):
-    resp = ctx.account.post("http://serienjunkies.org/media/ajax/search/search.php", data={"string": query})
+    resp = ctx.account.post("http://{}/media/ajax/search/search.php".format(this.name), data={"string": query})
     for d in pool.IMap.spawn(partial(_load, ctx), resp.json(), pool.Pool(5).spawn):
         if not d: continue
+        ctx.add_result(**d)
+
+def on_search_empty(ctx):
+    resp = ctx.account.get("http://serienjunkies.org/xml/feeds/{}.xml".format("episoden"), use_cache=True)
+    max_crawl = 10
+    ctx.next = ctx.position+max_crawl
+    all_items = re.findall("<item>.*?<title>(.*?)</title>.*?<pubDate>(.*?)</pubDate>.*?<link>(.*?)</link>.*?</item>", resp.text, re.DOTALL)[ctx.position:]
+    items = dict()
+    for name, pub, link in all_items:
+        name = u"{} Released: {}".format(name, pub)
+        items[link] = name
+        if len(items) >= max_crawl:
+            break
+    
+    for d in pool.IMap.spawn(partial(_load, ctx), items.iteritems(), pool.Pool(5).spawn):
+        if not d:
+            continue
         ctx.add_result(**d)

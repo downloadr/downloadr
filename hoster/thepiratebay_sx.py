@@ -8,7 +8,7 @@ from ... import hoster
 class this:
     model = hoster.HttpHoster
     name = "thepiratebay.sx"
-    search = dict(display="list", tags="audio, video, software, adult, other")
+    search = dict(display="list", tags="audio, video, software, adult, other", empty=True)
     patterns = [
         hoster.Matcher('https?', '*.thepiratebay.sx', "!/torrent/<id>/<name>"),
     ]
@@ -30,10 +30,8 @@ def on_check_http(file, resp):
     except TypeError:
         file.no_download_link()
 
-def on_search(ctx, query):
-    url = "http://thepiratebay.sx/search/{}/{}/99/0".format(query.encode("utf-8"), ctx.position)
-    resp = ctx.account.get(url)
-    table = resp.soup.find("table")
+def scrape_rows(ctx, soup):
+    table = soup.find("table")
     if not table:
         return
     rows = table.find_all("tr", class_=None)
@@ -46,8 +44,16 @@ def on_search(ctx, query):
             title=row.find("a", class_="detLink").text,
             description=row.find("font").text.split(", ULed")[0],
         )
-    
+
+def on_search(ctx, query):
+    url = "http://thepiratebay.sx/search/{}/{}/99/0".format(query.encode("utf-8"), ctx.position)
+    resp = ctx.account.get(url)
+    scrape_rows(ctx, resp.soup)
     if resp.soup.find("img", alt="Next"):
         ctx.next = ctx.position + 1
     else:
         ctx.next = None
+        
+def on_search_empty(ctx):
+    resp = ctx.account.get("http://thepiratebay.sx/recent/0")
+    scrape_rows(ctx, resp.soup)

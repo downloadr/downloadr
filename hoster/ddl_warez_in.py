@@ -2,14 +2,14 @@
 """
 ddl_warez_in.py
 """
-import re
+import re, random
 from ... import hoster, container
 
 @hoster.host
 class this:
     model = hoster.HttpHoster
     name = "ddl-warez.in"
-    search = dict(display="thumbs", tags="video, audio, software, other")
+    search = dict(display="thumbs", tags="video, audio, software, other", empty=True)
     patterns = [
         hoster.Matcher('https?', '*.ddl-warez.in', "!/download/cnl/<id>/").set_tag("cnl"),
         hoster.Matcher('https?', '*.ddl-warez.in', "!/download/cnl/<id>/mirror/<m>/").set_tag("cnl"),
@@ -93,16 +93,10 @@ def on_check_http(file, resp):
         # input? add all for now
         return mirrors.values()
 
-def on_search(ctx, query):
-    resp = ctx.account.get("http://ddl-warez.in/", 
-        params=dict(
-            search=query.encode("ISO-8859-1"), 
-            kat="", 
-            seite=ctx.position or 1,
-            sort='A'))
-    soup = resp.soup
+def scrape_rows(ctx, soup):
     rows = soup.select("table.downloads tr")
     if not rows:
+        print "no rows"
         return
         
     for r in rows[1:]:
@@ -117,10 +111,22 @@ def on_search(ctx, query):
         ctx.add_result(title=link.text, 
             thumb=thumb, url="http://ddl-warez.in/" + link["href"], 
             description=r.find("div").text.strip(), extra=True)
-    
-    current = int(soup.find("td", id="seitenfunktion_aktiv").text)
-    pages = [int(i.text) for i in soup.select("table#seitenfunktion td")]
+
+def on_search(ctx, query):
+    resp = ctx.account.get("http://ddl-warez.in/", 
+        params=dict(
+            search=query.encode("ISO-8859-1"), 
+            kat="", 
+            seite=ctx.position or 1,
+            sort='A'))
+    scrape_rows(ctx, resp.soup)
+    current = int(resp.soup.find("td", id="seitenfunktion_aktiv").text)
+    pages = [int(i.text) for i in resp.soup.select("table#seitenfunktion td")]
     if current == pages[-1]:
         return
     else:
         ctx.next = current + 1
+        
+def on_search_empty(ctx):
+    resp = ctx.account.get("http://ddl-warez.in/live.php", params=dict(live=random.randint(1000,9999)))
+    scrape_rows(ctx, resp.soup)

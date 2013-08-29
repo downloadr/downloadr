@@ -9,7 +9,7 @@ from ... import hoster
 class this:
     model = hoster.HttpHoster
     name = "movie2k.tl"
-    search = dict(display="thumbs", tags="other")
+    search = dict(display="thumbs", tags="other", empty=True)
     favicon_data = hoster.generate_icon("2K")
     patterns = [
         hoster.Matcher('https?', '*.movie2k.*', "!/<name>-<id>-online-film.html"),
@@ -25,6 +25,7 @@ def on_check_http(file, resp):
     if not extra:
         if this.config.ask_mirrors:
             remember, result = file.input_remember_boolean("Add Mirrors for movie2k link?")
+            print "INPUT:", remember, result
             if remember:
                 with hoster.transaction:
                     this.config["add_mirrors"] = result
@@ -63,7 +64,19 @@ def on_search(ctx, query):
         else:
             thumb = None
         ctx.add_result(
-            url=hoster.add_extra(item.find("a")["href"], dict(add_all=True)),
+            url=item.find("a")["href"],
             title = title,
             thumb=thumb,
+            extra=dict(add_all=True)
+        )
+        
+def on_search_empty(ctx):
+    resp = ctx.account.get("http://www.movie2k.tl/")
+    images = resp.soup.select("div#maincontent a img")
+    for i in images:
+        ctx.add_result(
+            url=i.parent["href"],
+            title=i["title"].replace(" kostenlos", ""),
+            thumb=i["src"],
+            extra=dict(add_all=True),
         )

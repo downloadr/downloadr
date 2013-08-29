@@ -10,16 +10,18 @@ from PIL import Image
 from ... import hoster, container, core
 from ...javascript import PyV8
 
+
 @hoster.host
 class this:
     model = hoster.HttpHoster
     name = "mov-world.net"
-    search = dict(display="list", tags="video, other")
+    search = dict(display="list", tags="video, other", empty=True)
     patterns = [
     hoster.Matcher('https?', '*.mov-world.net', "!/<cat>/<sub>/<names>/<name>-<id>.html"),
         hoster.Matcher('https?', '*.mov-world.net', "!/<cat>/<sub>/<name>-<id>.html"),
         hoster.Matcher('https?', '*.mov-world.net', "!/<cat>/<name>-<id>.html"),
     ]
+    set_user_agent = True
 
 def get_image(file, url):
     data = file.account.get("http://{}{}".format(this.name, url))
@@ -90,10 +92,35 @@ def on_search(ctx, query):
         else:
             ctx.next = int(page) + 1
 
-def on_initialize_account(account):
-    account.set_user_agent()
+def _g(x, t):
+    try:
+        return t.find("a")[t]
+    except AttributeError:
+        return ""
+
+def _scrape_cat(li):
+    if li == "\n":
+        return None, None
+    catname = li.find("a").text
+    if catname in {"XXX", "Musik", "Programme"}:
+        return None, None
+    return catname, [(u"http://{}{}".format(this.name, lii.find("a")["href"]), lii.find("a")["title"], lii.text) for lii in li("li")]
+            
+def on_search_empty(ctx):
+    resp = ctx.account.get("http://mov-world.net/news/index.html")
+    li = resp.soup.find("div", class_="update").find("ul").find("li")
+    cat, res = _scrape_cat(li)
+    for li in li.next_siblings:
+        cat, results = _scrape_cat(li)
+        if not cat:
+            continue
+        for url, filename, title in results:
+            t, title = title.split(" ", 1)
+            ctx.add_result(url=url, title=title, description=u"{} - {} - {}".format(t.strip("[]"), filename, cat))
+            
 
 # reimplement in python?
+# copied from browser cache
 script = """
 function LZW_decompress (a) {
     for (var b = [], dict_count = 256, bits = 8, rest = 0, rest_length = 0, i = 0; i < a.length; i++) {
