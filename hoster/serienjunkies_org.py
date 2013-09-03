@@ -147,7 +147,7 @@ def on_check(file):
 def _load(ctx, (cat, name), retry=3):
     if not retry:
         return
-    if cat.startswith("http"):
+    if str(cat).startswith("http"):
         url = cat
         params = None
     else:
@@ -175,7 +175,7 @@ def on_search(ctx, query):
         ctx.add_result(**d)
 
 def on_search_empty(ctx):
-    resp = ctx.account.get("http://serienjunkies.org/xml/feeds/{}.xml".format("episoden"), use_cache=True)
+    resp = ctx.account.get("http://{}/xml/feeds/{}.xml".format(this.name, "episoden"), use_cache=True)
     max_crawl = 10
     ctx.next = ctx.position+max_crawl
     all_items = re.findall("<item>.*?<title>(.*?)</title>.*?<pubDate>(.*?)</pubDate>.*?<link>(.*?)</link>.*?</item>", resp.text, re.DOTALL)[ctx.position:]

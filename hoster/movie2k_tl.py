@@ -25,7 +25,6 @@ def on_check_http(file, resp):
     if not extra:
         if this.config.ask_mirrors:
             remember, result = file.input_remember_boolean("Add Mirrors for movie2k link?")
-            print "INPUT:", remember, result
             if remember:
                 with hoster.transaction:
                     this.config["add_mirrors"] = result
