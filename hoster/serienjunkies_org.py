@@ -38,7 +38,7 @@ def download_link(file, retries=5):
         return download_link(file, retries=retries-1)
     payload = {x["name"]: x["value"] for x in form.find_all("input")}
     img_resp = file.account.get("http://download.serienjunkies.org" + img)
-    for text in file.solve_captcha(message=None, data=img_resp.content, mime=img_resp.headers["content_type"], retries=5):
+    for text in file.solve_captcha(message=None, data=img_resp.content, mime="image/png", retries=5):
         payload["c"] = text
         resp = file.account.post(file.url, data=payload)
         form = resp.soup.find("form", attrs={"name": "cnlform"})
